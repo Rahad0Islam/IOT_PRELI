@@ -17,6 +17,7 @@ import { notFound } from './middleware/notfound.middleware.js';
 import { deviceRoutes } from './modules/devices/device.routes.js';
 import { usageRoutes } from './modules/usage/usage.routes.js';
 import { alertRoutes } from './modules/alerts/alert.routes.js';
+import { runtimeRoutes } from './modules/runtime/runtime.routes.js';
 import { officeRoutes } from './modules/office/office.routes.js';
 
 export const createApp = (): express.Application => {
@@ -47,6 +48,7 @@ export const createApp = (): express.Application => {
   app.use('/api/usage', usageRoutes);
   app.use('/api/alerts', alertRoutes);
   app.use('/api/office', officeRoutes);
+  app.use('/api/runtime', runtimeRoutes);
   app.use('/api/rooms', deviceRoutes); // /api/rooms/* is implemented in device.routes
 
   // 404 + error handler (order matters).

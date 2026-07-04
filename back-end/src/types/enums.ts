@@ -49,6 +49,8 @@ export enum SocketEvent {
   DEVICE_UPDATED = 'device_updated',
   USAGE_UPDATED = 'usage_updated',
   ALERT_TRIGGERED = 'alert_triggered',
+  /** Fired by the runtime service when today/month totals change. */
+  RUNTIME_UPDATED = 'runtime_updated',
 }
 
 /** Default power draw in watts for each device type when ON. */

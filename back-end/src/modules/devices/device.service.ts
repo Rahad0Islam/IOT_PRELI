@@ -26,6 +26,7 @@ import type { Device } from '../../interfaces/device.interface.js';
 import type { ToggleDeviceBody } from './device.types.js';
 import { buildOfficeUsage } from '../usage/usage.service.js';
 import { alertService } from '../alerts/alert.service.js';
+import { runtimeService } from '../runtime/runtime.service.js';
 
 const isValidRoom = (s: string): s is Room =>
   s === Room.DRAWING || s === Room.WORK_1 || s === Room.WORK_2;
@@ -46,7 +47,6 @@ const isValidRoom = (s: string): s is Room =>
  */
 async function applyChange(updated: Device): Promise<void> {
   logger.info('devices', `change ${updated.room} / ${updated.name} -> ${updated.status}`);
-
   // (a) Live alert check — fires AFTER_HOURS the moment a device goes ON
   //     outside office hours, and fires CONTINUOUS_RUNTIME the moment a
   //     device that's already past the threshold gets refreshed.
@@ -56,13 +56,23 @@ async function applyChange(updated: Device): Promise<void> {
     logger.warn('devices', 'immediate alert check failed', err);
   }
 
-  // (b) Push the change to the dashboard over Socket.IO.
+  // (b) Runtime tracking — open or close the session, fold the delta into
+  //     the persistent totals. Best-effort: a runtime-tracking failure
+  //     must never block the device change from being published.
+  try {
+    await runtimeService.onDeviceChanged(updated);
+  } catch (err) {
+    logger.warn('devices', 'runtime tracking update failed', err);
+  }
+
+  // (c) Push the change to the dashboard over Socket.IO.
   socketService.emit(SocketEvent.DEVICE_UPDATED, updated);
 
-  // (c) Re-publish the office-wide usage snapshot. Read fresh in case the
+  // (d) Re-publish the office-wide usage snapshot. Read fresh in case the
   //     alert check above flipped any dedup flags.
   const all = await databaseService.getDevices();
-  socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(all));
+  const usage = buildOfficeUsage(all, await runtimeService.snapshot());
+  socketService.emit(SocketEvent.USAGE_UPDATED, usage);
 }
 
 export const deviceService = {

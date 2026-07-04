@@ -3,17 +3,17 @@
  */
 
 import { databaseService } from '../../database/database.service.js';
-import { estimateTodayKWh } from '../usage/usage.service.js';
+import { runtimeService } from '../runtime/runtime.service.js';
 import type { OfficeInfoResponse } from './office.types.js';
 
 export const officeService = {
   async info(): Promise<OfficeInfoResponse> {
     const cfg = await databaseService.getOfficeConfig();
-    const devices = await databaseService.getDevices();
+    const snapshot = await runtimeService.snapshot();
     return {
       name: 'Pixel Office',
       officeHours: cfg.officeHours,
-      estimatedTodayUsage: estimateTodayKWh(devices),
+      estimatedTodayUsage: snapshot.total.todayKWh,
     };
   },
 

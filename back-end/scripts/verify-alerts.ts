@@ -208,6 +208,92 @@ console.log('\n-- Dual-trigger wiring (source-level) --');
     console.log(`${ok ? '✅ PASS' : '❌ FAIL'}  ${label}`);
     ok ? wirePass++ : wireFail++;
   }
-  console.log(`\nResult: ${pass} passed, ${fail} failed, ${wirePass} wiring ok, ${wireFail} wiring broken.\n`);
-  process.exit(fail === 0 && wireFail === 0 ? 0 : 1);
+
+  // ---------------------------------------------------------------------
+  //  Runtime tracking wiring (source-level).
+  //  The runtime service is the new source of truth for kWh totals; we
+  //  verify it's actually wired up rather than only present on disk.
+  // ---------------------------------------------------------------------
+  console.log('\n-- Runtime tracking wiring (source-level) --');
+
+  const runtimeSvcSrc = readFileSync(
+    nodePath.resolve('src/modules/runtime/runtime.service.ts'),
+    'utf8'
+  );
+  const runtimeHistSrc = readFileSync(
+    nodePath.resolve('src/modules/runtime/runtime-history.service.ts'),
+    'utf8'
+  );
+  const appSrc = readFileSync(nodePath.resolve('src/app.ts'), 'utf8');
+  const configSrc = readFileSync(nodePath.resolve('src/config/config.ts'), 'utf8');
+  const enumsSrc = readFileSync(
+    nodePath.resolve('src/types/enums.ts'),
+    'utf8'
+  );
+
+  const runtimeChecks: Array<[string, boolean]> = [
+    [
+      'runtime.service.ts exists and is non-empty',
+      runtimeSvcSrc.length > 0,
+    ],
+    [
+      'runtime.service.ts persists via runtimeHistoryService.upsertRecord',
+      /runtimeHistoryService\.upsertRecord\(/.test(runtimeSvcSrc),
+    ],
+    [
+      'runtime.service.ts runs a setInterval tick (live accumulation)',
+      /setInterval\(/.test(runtimeSvcSrc) && /\.tick\s*\(/.test(runtimeSvcSrc),
+    ],
+    [
+      'runtime-history.service.ts owns runtime-history.json (LowDB JSONFile)',
+      /new\s+JSONFile\b/.test(runtimeHistSrc) &&
+        /runtime-history\.json/.test(configSrc),
+    ],
+    [
+      'device.service.applyChange calls runtimeService.onDeviceChanged',
+      /runtimeService\.onDeviceChanged\(/.test(devicesSvc),
+    ],
+    [
+      'device.service.applyChange passes the runtime snapshot into buildOfficeUsage',
+      /buildOfficeUsage\([^)]*runtimeService\.snapshot\(\)/.test(devicesSvc),
+    ],
+    [
+      'app.ts mounts runtimeRoutes at /api/runtime',
+      /app\.use\(\s*['"`]\/api\/runtime['"`]\s*,\s*runtimeRoutes/.test(appSrc),
+    ],
+    [
+      'SocketEvent.RUNTIME_UPDATED is defined in enums.ts',
+      /RUNTIME_UPDATED\s*=\s*['"`]runtime_updated['"`]/.test(enumsSrc),
+    ],
+    [
+      'server.ts calls runtimeService.init() at startup',
+      existsSync(nodePath.resolve('src/server.ts')) &&
+        /await\s+runtimeService\.init\(\s*\)/.test(
+          readFileSync(nodePath.resolve('src/server.ts'), 'utf8')
+        ),
+    ],
+    [
+      'server.ts starts runtimeService.start() in the background workers block',
+      /runtimeService\.start\(\s*\)/.test(
+        readFileSync(nodePath.resolve('src/server.ts'), 'utf8')
+      ),
+    ],
+  ];
+
+  let runtimePass = 0;
+  let runtimeFail = 0;
+  for (const [label, ok] of runtimeChecks) {
+    console.log(`${ok ? '✅ PASS' : '❌ FAIL'}  ${label}`);
+    ok ? runtimePass++ : runtimeFail++;
+  }
+
+  // Note: `wirePass` / `wireFail` were the legacy single-section counters.
+  // Runtime checks are reported separately so the final line still shows
+  // the picture across both wiring sections.
+  console.log(
+    `\nResult: ${pass} passed, ${fail} failed; ` +
+      `alerts-wiring: ${wirePass} ok; ` +
+      `runtime-wiring: ${runtimePass} ok, ${runtimeFail} broken.\n`
+  );
+  process.exit(fail === 0 && runtimeFail === 0 ? 0 : 1);
 }

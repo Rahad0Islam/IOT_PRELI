@@ -74,7 +74,11 @@ you'll see every connected client update immediately — no refresh needed.
 - **Live dashboard** with per-device toggle, room cards, office top-down
   map, power meter, history chart, and per-room load pie chart.
 - **Real-time push** via Socket.IO — `device_updated`, `usage_updated`,
-  `alert_triggered`.
+  `runtime_updated`, `alert_triggered`.
+- **Persistent runtime tracking** — every device's ON-time is recorded in
+  its own LowDB file (`runtime-history.json`) and survives toggles,
+  restarts, and day/month rollovers. Power usage (`kWh = W × h / 1000`)
+  is computed from these real totals, not a heuristic.
 - **Two alert types**, both dedup'd per device:
   - `AFTER_HOURS` — ON outside `OFFICE_START_HOUR` … `OFFICE_END_HOUR`.
   - `CONTINUOUS_RUNTIME` — ON continuously for ≥
@@ -147,6 +151,7 @@ back-end/
     ├── modules/
     │   ├── devices/           ← list / toggle / group-by-room
     │   ├── usage/             ← aggregated load + kWh
+    │   ├── runtime/           ← persistent per-device runtime engine
     │   ├── alerts/            ← engine + scheduler + routes
     │   ├── office/            ← office-hours config
     │   ├── simulator/         ← background toggle timer
@@ -311,7 +316,7 @@ npm run preview        # static preview of the build
 
 ### Data model
 
-Persisted in `back-end/src/database/db.json` (LowDB):
+| Persisted in `back-end/src/database/db.json` (LowDB):
 
 ```ts
 {
@@ -345,6 +350,35 @@ Persisted in `back-end/src/database/db.json` (LowDB):
 
 `alertTriggered` and `runtimeAlertSent` are reset to `false` whenever a
 device flips OFF, so the corresponding alert can re-fire next time.
+
+A **second** LowDB file — `back-end/src/database/runtime-history.json` —
+is owned exclusively by the runtime-tracking module. It carries per-device
+runtime totals and is never read or written by `database.service.ts`:
+
+```ts
+{
+  devices: [
+    {
+      deviceId: "uuid",
+      deviceName: "Light 1",
+      room: "drawing",
+      currentSessionStart: "2025-07-04T10:50:11.351Z" | null,
+      todayRuntimeSeconds: 732,
+      monthRuntimeSeconds: 732,
+      totalRuntimeSeconds: 732,
+      dailyHistory:   { "2025-07-04": 732 },
+      monthlyHistory: { "2025-07":    732 },
+      lastUpdated: "2025-07-04T10:50:11.351Z"
+    }
+    // … one entry per device id, lazily seeded
+  ],
+  lastDailyReset:   "2025-07-04T00:00:00.000Z",
+  lastMonthlyReset: "2025-07-01T00:00:00.000Z"
+}
+```
+
+The split is intentional: a corrupt or bloated runtime history can never
+break the device/alerts/office-config file the rest of the app depends on.
 
 ### Live event loop
 

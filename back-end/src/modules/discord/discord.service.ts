@@ -25,6 +25,7 @@ import { logger } from '../../utils/logger.js';
 import { Room, ROOM_LABELS } from '../../types/enums.js';
 import type { Alert } from '../../interfaces/alert.interface.js';
 import { buildOfficeUsage } from '../usage/usage.service.js';
+import { runtimeService } from '../runtime/runtime.service.js';
 import {
   buildSnapshot,
   geminiService,
@@ -113,7 +114,7 @@ class DiscordService {
     try {
       const devices = await databaseService.getDevices();
       const alerts = await databaseService.getAlerts();
-      const usage = buildOfficeUsage(devices);
+      const usage = buildOfficeUsage(devices, await runtimeService.snapshot());
 
       let replyText = '';
 

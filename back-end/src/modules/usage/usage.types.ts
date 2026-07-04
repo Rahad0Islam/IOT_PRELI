@@ -4,6 +4,8 @@
  * Shapes returned by the /api/usage endpoints.
  */
 
+import type { RuntimeSnapshot } from '../runtime/runtime.types.js';
+
 export interface RoomUsage {
   room: string;
   /** Watts being drawn by ON devices in this room right now. */
@@ -12,19 +14,34 @@ export interface RoomUsage {
   onCount: number;
   /** Total # of devices in this room. */
   totalCount: number;
+  /** kWh accumulated in this room today, derived from the runtime history. */
+  todayKWh: number;
+  /** kWh accumulated in this room this month, derived from the runtime history. */
+  monthKWh: number;
 }
 
 export interface OfficeUsage {
   /** Aggregate instantaneous office draw, in watts. */
   totalPowerWatts: number;
-  /** kWh estimated for *today*. Persisted in `db.office.estimatedTodayUsage`. */
+  /**
+   * kWh accumulated today. Now sourced from the persistent runtime history
+   * (`RuntimeSnapshot.total.todayKWh`) so the number survives device
+   * toggles and server restarts.
+   */
   estimatedTodayKWh: number;
-  /** kWh estimated for the full month (heuristic: today × 22 working days). */
+  /**
+   * kWh accumulated this month. Also from the runtime history.
+   */
   estimatedMonthlyKWh: number;
   /** Per-room breakdown. */
   rooms: RoomUsage[];
   /** Most recent ON transitions across the office (for the line chart). */
   history: UsageHistoryPoint[];
+  /**
+   * Optional runtime snapshot — included so clients that hit /api/usage
+   * still get per-device runtime totals without a second fetch.
+   */
+  runtime?: RuntimeSnapshot;
   /** ISO timestamp the snapshot was computed at. */
   computedAt: string;
 }

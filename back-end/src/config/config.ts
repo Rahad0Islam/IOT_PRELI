@@ -51,6 +51,14 @@ export const config = {
   paths: {
     /** Default LowDB file lives in `src/database/db.json`. */
     dbFile: resolveFromRoot(str('LOWDB_FILE') || path.join('src', 'database', 'db.json')),
+    /**
+     * Runtime history lives in its own file (`src/database/runtime-history.json`)
+     * so a corrupt history can't bring down the device list, and so the file
+     * can be inspected / rotated independently.
+     */
+    runtimeHistoryFile: resolveFromRoot(
+      str('RUNTIME_HISTORY_FILE') || path.join('src', 'database', 'runtime-history.json')
+    ),
     publicDir: resolveFromRoot('public'),
   },
 
@@ -88,6 +96,21 @@ export const config = {
     /** Continuous runtime threshold — devices ON longer than this trigger an alert. */
     continuousRuntimeMs:
       num('DEVICE_RUNTIME_ALERT_MINUTES', 120) * 60 * 1000,
+  },
+
+  runtime: {
+    /**
+     * How often the runtime service persists the in-memory totals to disk
+     * while devices are ON. Lower = more accurate dashboard numbers across
+     * crashes, higher = less disk I/O. Default 30s matches the SPEC.
+     */
+    persistIntervalMs: num('RUNTIME_PERSIST_INTERVAL_MS', 30_000),
+    /**
+     * How often the runtime service wakes up to (a) re-persist running
+     * sessions and (b) emit `runtime_updated` so the dashboard can refresh.
+     * Default 30s.
+     */
+    tickIntervalMs: num('RUNTIME_TICK_INTERVAL_MS', 30_000),
   },
 
   office: {

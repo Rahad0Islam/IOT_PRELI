@@ -33,6 +33,7 @@ import { AlertSeverity, AlertType, DeviceStatus, ROOM_LABELS } from '../../types
 import type { Alert } from '../../interfaces/alert.interface.js';
 import type { Device } from '../../interfaces/device.interface.js';
 import { buildOfficeUsage } from '../usage/usage.service.js';
+import { runtimeService } from '../runtime/runtime.service.js';
 import { socketService } from '../../socket/socket.service.js';
 import { SocketEvent } from '../../types/enums.js';
 import { discordService } from '../discord/discord.service.js';
@@ -152,7 +153,8 @@ class AlertService {
     socketService.emit(SocketEvent.ALERT_TRIGGERED, alert);
     // Re-publish usage snapshot so the dashboard reflects any drift.
     const devices = await databaseService.getDevices();
-    socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(devices));
+    const runtime = await runtimeService.snapshot();
+    socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(devices, runtime));
     // Best-effort Discord notification (no-op if bot is disabled).
     discordService.notifyAlert(alert).catch((err) => {
       logger.warn('alerts', 'discord notify failed', err);

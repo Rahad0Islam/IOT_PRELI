@@ -14,6 +14,7 @@ import { socketService } from './socket/socket.service.js';
 import { simulatorService } from './modules/simulator/simulator.service.js';
 import { alertScheduler } from './modules/alerts/alert.scheduler.js';
 import { discordService } from './modules/discord/discord.service.js';
+import { runtimeService } from './modules/runtime/runtime.service.js';
 import { logger } from './utils/logger.js';
 
 const bootstrap = async (): Promise<void> => {
@@ -29,7 +30,14 @@ const bootstrap = async (): Promise<void> => {
   // 3. Socket.IO bound to the same HTTP server.
   socketService.init(httpServer);
 
-  // 4. Start background workers.
+  // 4. Runtime tracking service.
+  // Must init after the database (it seeds records from the live device
+  // list) and before the simulator/alert workers — once it starts ticking,
+  // those workers should see a fully-initialised runtime history.
+  await runtimeService.init();
+  runtimeService.start();
+
+  // 5. Start background workers.
   simulatorService.start();
   alertScheduler.start();
 
@@ -48,6 +56,7 @@ const bootstrap = async (): Promise<void> => {
     logger.info('boot', `received ${signal}, shutting down…`);
     simulatorService.stop();
     alertScheduler.stop();
+    runtimeService.stop();
     httpServer.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 5_000).unref();
   };
