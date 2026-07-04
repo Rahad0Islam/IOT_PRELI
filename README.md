@@ -9,7 +9,7 @@ A real-time monitoring and alert system for fans and lights in a small three-roo
 
 ## Table of contents
 
-1. [Project setup and running guide](#project-setup-and-running-guide) — most important section
+1. [Project setup and running guide](#project-setup-and-running-guide) 
 2. [System design](#system-design)
 3. [Circuit design](#circuit-design)
 4. [Backend and frontend implementation](#backend-and-frontend-implementation)
@@ -20,8 +20,6 @@ A real-time monitoring and alert system for fans and lights in a small three-roo
 # Project setup and running guide
 
 This section is written for someone who has **never seen the project before**. Follow the steps in order. By the end you will have the backend, the dashboard, and the Discord bot running side by side.
-
-> **Note on the bot:** the spec asks for a "Telegram bot", but the running implementation in this repository is a **Discord bot** (see `back-end/src/modules/discord/`). The bot behaviour, commands, and alerts described below are the actual ones in the codebase.
 
 ## 1. Prerequisites
 
