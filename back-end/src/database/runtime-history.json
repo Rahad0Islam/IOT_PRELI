@@ -4,13 +4,13 @@
       "deviceId": "e2d3e3db-ec47-4e71-a917-b0562a54c22b",
       "deviceName": "Fan 1",
       "room": "Drawing Room",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1561,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2026,
       "monthRuntimeSeconds": 973,
-      "totalRuntimeSeconds": 1561,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2026,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1561
+        "2026-07-04": 2026
       },
       "monthlyHistory": {
         "2026-07": 973
@@ -20,13 +20,13 @@
       "deviceId": "5d5aa1e8-b311-458b-8959-95ee7db4f57c",
       "deviceName": "Fan 2",
       "room": "Drawing Room",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 2020,
+      "currentSessionStart": null,
+      "todayRuntimeSeconds": 2617,
       "monthRuntimeSeconds": 526,
-      "totalRuntimeSeconds": 2020,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2617,
+      "lastUpdated": "2026-07-04T12:59:56.451Z",
       "dailyHistory": {
-        "2026-07-04": 2020
+        "2026-07-04": 2617
       },
       "monthlyHistory": {
         "2026-07": 526
@@ -36,13 +36,13 @@
       "deviceId": "4dec4f46-abac-4283-97a6-bfd0382757c8",
       "deviceName": "Light 1",
       "room": "Drawing Room",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1901,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2318,
       "monthRuntimeSeconds": 353,
-      "totalRuntimeSeconds": 1901,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2318,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1901
+        "2026-07-04": 2318
       },
       "monthlyHistory": {
         "2026-07": 353
@@ -53,12 +53,12 @@
       "deviceName": "Light 2",
       "room": "Drawing Room",
       "currentSessionStart": null,
-      "todayRuntimeSeconds": 2282,
+      "todayRuntimeSeconds": 3346,
       "monthRuntimeSeconds": 558,
-      "totalRuntimeSeconds": 2282,
-      "lastUpdated": "2026-07-04T12:36:08.294Z",
+      "totalRuntimeSeconds": 3346,
+      "lastUpdated": "2026-07-04T13:00:44.469Z",
       "dailyHistory": {
-        "2026-07-04": 2282
+        "2026-07-04": 3346
       },
       "monthlyHistory": {
         "2026-07": 558
@@ -68,13 +68,13 @@
       "deviceId": "be19bec7-a117-4156-baf9-a959877fd1d0",
       "deviceName": "Light 3",
       "room": "Drawing Room",
-      "currentSessionStart": null,
-      "todayRuntimeSeconds": 1312,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2112,
       "monthRuntimeSeconds": 493,
-      "totalRuntimeSeconds": 1312,
-      "lastUpdated": "2026-07-04T12:34:56.289Z",
+      "totalRuntimeSeconds": 2112,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1312
+        "2026-07-04": 2112
       },
       "monthlyHistory": {
         "2026-07": 493
@@ -84,13 +84,13 @@
       "deviceId": "0ef7569b-557f-40bd-9017-3f2736fda7c9",
       "deviceName": "Fan 1",
       "room": "Work Room 1",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1202,
+      "currentSessionStart": "2026-07-04T13:01:20.474Z",
+      "todayRuntimeSeconds": 1728,
       "monthRuntimeSeconds": 492,
-      "totalRuntimeSeconds": 1202,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 1728,
+      "lastUpdated": "2026-07-04T13:01:20.474Z",
       "dailyHistory": {
-        "2026-07-04": 1202
+        "2026-07-04": 1728
       },
       "monthlyHistory": {
         "2026-07": 492
@@ -100,13 +100,13 @@
       "deviceId": "64c0f60a-6fe6-49a1-a682-a54cb74fde34",
       "deviceName": "Fan 2",
       "room": "Work Room 1",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1357,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2157,
       "monthRuntimeSeconds": 685,
-      "totalRuntimeSeconds": 1357,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2157,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1357
+        "2026-07-04": 2157
       },
       "monthlyHistory": {
         "2026-07": 685
@@ -116,13 +116,13 @@
       "deviceId": "aa6259c5-bdb4-4fb1-852b-977e4e7d8988",
       "deviceName": "Light 1",
       "room": "Work Room 1",
-      "currentSessionStart": null,
-      "todayRuntimeSeconds": 1518,
+      "currentSessionStart": "2026-07-04T13:01:08.468Z",
+      "todayRuntimeSeconds": 2452,
       "monthRuntimeSeconds": 662,
-      "totalRuntimeSeconds": 1518,
-      "lastUpdated": "2026-07-04T12:35:44.295Z",
+      "totalRuntimeSeconds": 2452,
+      "lastUpdated": "2026-07-04T13:01:08.468Z",
       "dailyHistory": {
-        "2026-07-04": 1518
+        "2026-07-04": 2452
       },
       "monthlyHistory": {
         "2026-07": 662
@@ -133,12 +133,12 @@
       "deviceName": "Light 2",
       "room": "Work Room 1",
       "currentSessionStart": null,
-      "todayRuntimeSeconds": 484,
+      "todayRuntimeSeconds": 1008,
       "monthRuntimeSeconds": 95,
-      "totalRuntimeSeconds": 484,
-      "lastUpdated": "2026-07-04T12:35:32.293Z",
+      "totalRuntimeSeconds": 1008,
+      "lastUpdated": "2026-07-04T12:58:32.433Z",
       "dailyHistory": {
-        "2026-07-04": 484
+        "2026-07-04": 1008
       },
       "monthlyHistory": {
         "2026-07": 95
@@ -148,13 +148,13 @@
       "deviceId": "220d4dd0-acc8-4ad1-ba2c-3900432fcbbd",
       "deviceName": "Light 3",
       "room": "Work Room 1",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1440,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2205,
       "monthRuntimeSeconds": 865,
-      "totalRuntimeSeconds": 1440,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2205,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1440
+        "2026-07-04": 2205
       },
       "monthlyHistory": {
         "2026-07": 865
@@ -164,13 +164,13 @@
       "deviceId": "f5fad6e2-02bb-4ee7-a56a-145c273a2913",
       "deviceName": "Fan 1",
       "room": "Work Room 2",
-      "currentSessionStart": null,
-      "todayRuntimeSeconds": 1807,
+      "currentSessionStart": "2026-07-04T13:01:20.465Z",
+      "todayRuntimeSeconds": 2307,
       "monthRuntimeSeconds": 329,
-      "totalRuntimeSeconds": 1807,
-      "lastUpdated": "2026-07-04T12:35:20.290Z",
+      "totalRuntimeSeconds": 2307,
+      "lastUpdated": "2026-07-04T13:01:20.465Z",
       "dailyHistory": {
-        "2026-07-04": 1807
+        "2026-07-04": 2307
       },
       "monthlyHistory": {
         "2026-07": 329
@@ -180,13 +180,13 @@
       "deviceId": "051755fe-447e-4a4e-93ee-d25b11715ef4",
       "deviceName": "Fan 2",
       "room": "Work Room 2",
-      "currentSessionStart": "2026-07-04T12:36:08.298Z",
-      "todayRuntimeSeconds": 1698,
+      "currentSessionStart": null,
+      "todayRuntimeSeconds": 2582,
       "monthRuntimeSeconds": 468,
-      "totalRuntimeSeconds": 1698,
-      "lastUpdated": "2026-07-04T12:36:08.298Z",
+      "totalRuntimeSeconds": 2582,
+      "lastUpdated": "2026-07-04T12:57:20.422Z",
       "dailyHistory": {
-        "2026-07-04": 1698
+        "2026-07-04": 2582
       },
       "monthlyHistory": {
         "2026-07": 468
@@ -196,13 +196,13 @@
       "deviceId": "ef90e3bc-68c2-4fc7-9962-a55ae299a3ba",
       "deviceName": "Light 1",
       "room": "Work Room 2",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1371,
+      "currentSessionStart": null,
+      "todayRuntimeSeconds": 1969,
       "monthRuntimeSeconds": 204,
-      "totalRuntimeSeconds": 1371,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 1969,
+      "lastUpdated": "2026-07-04T13:01:08.461Z",
       "dailyHistory": {
-        "2026-07-04": 1371
+        "2026-07-04": 1969
       },
       "monthlyHistory": {
         "2026-07": 204
@@ -212,13 +212,13 @@
       "deviceId": "84ba4db5-1120-4949-9350-f8370b7be752",
       "deviceName": "Light 2",
       "room": "Work Room 2",
-      "currentSessionStart": "2026-07-04T12:36:08.287Z",
-      "todayRuntimeSeconds": 1563,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 2147,
       "monthRuntimeSeconds": 294,
-      "totalRuntimeSeconds": 1563,
-      "lastUpdated": "2026-07-04T12:36:08.287Z",
+      "totalRuntimeSeconds": 2147,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 1563
+        "2026-07-04": 2147
       },
       "monthlyHistory": {
         "2026-07": 294
@@ -228,13 +228,13 @@
       "deviceId": "f089bfcb-fb6f-4c25-82f0-1b93e4ea2f82",
       "deviceName": "Light 3",
       "room": "Work Room 2",
-      "currentSessionStart": null,
-      "todayRuntimeSeconds": 2268,
+      "currentSessionStart": "2026-07-04T13:01:08.389Z",
+      "todayRuntimeSeconds": 3032,
       "monthRuntimeSeconds": 728,
-      "totalRuntimeSeconds": 2268,
-      "lastUpdated": "2026-07-04T12:31:25.225Z",
+      "totalRuntimeSeconds": 3032,
+      "lastUpdated": "2026-07-04T13:01:08.389Z",
       "dailyHistory": {
-        "2026-07-04": 2268
+        "2026-07-04": 3032
       },
       "monthlyHistory": {
         "2026-07": 728
