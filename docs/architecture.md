@@ -6,7 +6,7 @@ The source diagram is `architecture.svg` in this folder.
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                          USERS &amp; EXTERNAL SYSTEMS                       │
-│   Operator  ─►  Dashboard  |  Moderator  ─►  Discord  |  ESP32 / Sim.    │
+│   Operator  ─►  Dashboard  |  Moderator  ─►  Discord  |  ARDUINO / Sim.    │
 └───────────────────────────────────────────────────────────────────────────┘
             │                   ▲                    │             │
             │ HTTP REST         │ WebSocket          │ state       │
@@ -38,7 +38,7 @@ The source diagram is `architecture.svg` in this folder.
 
 ## Read order of the live event loop
 
-1. **Simulator** (or the real ESP32) writes a new device status into the DB.
+1. **Simulator** (or the real ARDUINO) writes a new device status into the DB.
 2. **DatabaseService** persists it.
 3. **Devices/Usage services** emit `device_updated` / `usage_updated` over **Socket.IO**.
 4. **Frontend** receives the event, calls `setQueryData` so React re-renders instantly.
@@ -64,6 +64,6 @@ Everything in this system (DB, simulator, alert engine, Discord bot, REST + WS) 
 
 - One source of truth, no race conditions.
 - Bot restarts when the backend restarts — no separate deploy.
-- Adding a real ESP32 later is just replacing the simulator's `updateDevice` call with an inbound `POST /api/devices/:id/toggle`.
+- Adding a real ARDUINO later is just replacing the simulator's `updateDevice` call with an inbound `POST /api/devices/:id/toggle`.
 
 See `architecture.svg` for the full colour-coded diagram.

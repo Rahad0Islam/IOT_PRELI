@@ -35,7 +35,7 @@ const isValidRoom = (s: string): s is Room =>
  * Shared "a device changed" handler.
  *
  * Every code path that mutates a device (REST toggle, simulator tick,
- * future ESP32 webhook) MUST go through this so:
+ * future ARDUINO webhook) MUST go through this so:
  *   1. The 60s scheduler's job is preserved (it still runs `scan()` to
  *      catch devices that cross the runtime threshold WITHOUT any new
  *      event — e.g. nobody touches them for 2h).
@@ -154,7 +154,7 @@ export const deviceService = {
   /**
    * Apply a pre-decided status change WITHOUT going through the toggle
    * endpoint. Used by the simulator (which has already picked the random
-   * next state) and by future ESP32 webhooks (which already know the
+   * next state) and by future ARDUINO webhooks (which already know the
    * relay's actual state).
    *
    * Routes through the same `applyChange` pipeline as `toggle()` so the

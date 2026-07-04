@@ -40,7 +40,7 @@ export default function AboutPage() {
         </ul>
         <p>
           See <code>HARDWARE.md</code> for the pin map if you wire this up to
-          a real ESP32 / relay board, and the README at the project root for
+          a real ARDUINO / relay board, and the README at the project root for
           setup and run commands.
         </p>
       </section>

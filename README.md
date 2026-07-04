@@ -85,7 +85,7 @@ you'll see every connected client update immediately — no refresh needed.
     `DEVICE_RUNTIME_ALERT_MINUTES` (default 120 minutes), independent of
     office hours.
 - **In-process simulator** — flips 1–2 devices every 10–15s, ~50% ON,
-  mirrors what a real ESP32 would do.
+  mirrors what a real ARDUINO would do.
 - **Discord bot** (discord.js v14) replies to `!status`, `!room <name>`,
   `!usage` in any channel it can read, and **proactively posts alerts** to
   the configured `#office-alerts` channel.
@@ -385,7 +385,7 @@ break the device/alerts/office-config file the rest of the app depends on.
 ```
 ┌──────────────────┐  every 10–15s    ┌──────────────────┐  updateDevice()  ┌──────────────┐
 │ Simulator (or    │ ──────────────► │  Devices Service │ ──────────────► │   Database   │
-│  real ESP32)     │                 │                  │                 │   (LowDB)    │
+│  real ARDUINO)     │                 │                  │                 │   (LowDB)    │
 └──────────────────┘                 └─────────┬────────┘                 └──────┬───────┘
                                                │                                 │
                                                │ emit device_updated              │
