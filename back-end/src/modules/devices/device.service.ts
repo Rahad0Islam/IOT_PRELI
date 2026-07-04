@@ -25,9 +25,45 @@ import {
 import type { Device } from '../../interfaces/device.interface.js';
 import type { ToggleDeviceBody } from './device.types.js';
 import { buildOfficeUsage } from '../usage/usage.service.js';
+import { alertService } from '../alerts/alert.service.js';
 
 const isValidRoom = (s: string): s is Room =>
   s === Room.DRAWING || s === Room.WORK_1 || s === Room.WORK_2;
+
+/**
+ * Shared "a device changed" handler.
+ *
+ * Every code path that mutates a device (REST toggle, simulator tick,
+ * future ESP32 webhook) MUST go through this so:
+ *   1. The 60s scheduler's job is preserved (it still runs `scan()` to
+ *      catch devices that cross the runtime threshold WITHOUT any new
+ *      event — e.g. nobody touches them for 2h).
+ *   2. The IMMEDIATE alert check fires off `evaluateNow(updated)` BEFORE
+ *      the `device_updated` socket emit so the dashboard, the bot, and
+ *      the alert log all see a coherent snapshot.
+ *   3. The `device_updated` + `usage_updated` socket emit happens once,
+ *      in one place.
+ */
+async function applyChange(updated: Device): Promise<void> {
+  logger.info('devices', `change ${updated.room} / ${updated.name} -> ${updated.status}`);
+
+  // (a) Live alert check — fires AFTER_HOURS the moment a device goes ON
+  //     outside office hours, and fires CONTINUOUS_RUNTIME the moment a
+  //     device that's already past the threshold gets refreshed.
+  try {
+    await alertService.evaluateNow(updated);
+  } catch (err) {
+    logger.warn('devices', 'immediate alert check failed', err);
+  }
+
+  // (b) Push the change to the dashboard over Socket.IO.
+  socketService.emit(SocketEvent.DEVICE_UPDATED, updated);
+
+  // (c) Re-publish the office-wide usage snapshot. Read fresh in case the
+  //     alert check above flipped any dedup flags.
+  const all = await databaseService.getDevices();
+  socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(all));
+}
 
 export const deviceService = {
   /** All devices, sorted by room then name. */
@@ -82,15 +118,8 @@ export const deviceService = {
     });
     if (!updated) return null;
 
-    logger.info('devices', `toggle ${updated.room} / ${updated.name} -> ${updated.status}`);
-
-    // Notify websocket subscribers.
-    socketService.emit(SocketEvent.DEVICE_UPDATED, updated);
-
-    // Re-publish current usage snapshot (power draw may have changed).
-    const all = await databaseService.getDevices();
-    socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(all));
-
+    // Delegate to the shared change handler so toggle + simulator behave identically.
+    await applyChange(updated);
     return updated;
   },
 
@@ -110,6 +139,36 @@ export const deviceService = {
     const all = await this.list();
     if (!isValidRoom(room)) return [];
     return all.filter((d) => d.room === room);
+  },
+
+  /**
+   * Apply a pre-decided status change WITHOUT going through the toggle
+   * endpoint. Used by the simulator (which has already picked the random
+   * next state) and by future ESP32 webhooks (which already know the
+   * relay's actual state).
+   *
+   * Routes through the same `applyChange` pipeline as `toggle()` so the
+   * immediate alert check + socket emits happen identically regardless of
+   * the trigger source.
+   */
+  async applyStatus(deviceId: string, nextStatus: DeviceStatus): Promise<Device | null> {
+    const devices = await databaseService.getDevices();
+    const device = devices.find((d) => d.id === deviceId);
+    if (!device) return null;
+
+    const updated = await databaseService.updateDevice(device.id, {
+      status: nextStatus,
+      lastChanged: nowISO(),
+      // Reset dedup flags when a device goes OFF — clears alert "memory".
+      afterHoursAlertSent:
+        nextStatus === DeviceStatus.OFF ? false : device.afterHoursAlertSent,
+      runtimeAlertSent:
+        nextStatus === DeviceStatus.OFF ? false : device.runtimeAlertSent,
+    });
+    if (!updated) return null;
+
+    await applyChange(updated);
+    return updated;
   },
 
   /** Count devices of a given type / room — handy for the bot summary. */

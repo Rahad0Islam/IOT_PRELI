@@ -38,7 +38,10 @@ import { SocketEvent } from '../../types/enums.js';
 import { discordService } from '../discord/discord.service.js';
 
 class AlertService {
-  /** Scan all devices and emit any newly-detected alerts. */
+  /**
+   * Scan ALL devices. Called by the 60s scheduler so we never miss a device
+   * crossing the continuous-runtime threshold without a fresh event.
+   */
   async scan(): Promise<Alert[]> {
     const devices = await databaseService.getDevices();
     const triggered: Alert[] = [];
@@ -60,6 +63,29 @@ class AlertService {
     if (triggered.length > 0) {
       logger.info('alerts', `scan triggered ${triggered.length} new alert(s)`);
     }
+    return triggered;
+  }
+
+  /**
+   * Re-evaluate a single device immediately. Called right after a
+   * device_updated socket emit so we don't have to wait up to 60s for the
+   * next scheduler tick to fire an after-hours alert.
+   *
+   * This handles BOTH alert types:
+   *   - AFTER_HOURS — fires the moment a device is toggled ON outside
+   *     office hours.
+   *   - CONTINUOUS_RUNTIME — fires the moment a device that has already
+   *     been ON past the threshold gets its lastChanged refreshed.
+   *
+   * The 60s `scan()` is kept so devices that *cross* the runtime threshold
+   * WITHOUT a new event (e.g. nobody touches them for 2h) still get caught.
+   */
+  async evaluateNow(device: Device): Promise<Alert[]> {
+    const triggered: Alert[] = [];
+    // evaluateDevice returns the last alert it pushed (so at most one entry
+    // is ever returned). For symmetry with `scan()` we wrap it in an array.
+    const result = await this.evaluateDevice(device, new Date());
+    if (result) triggered.push(result);
     return triggered;
   }
 

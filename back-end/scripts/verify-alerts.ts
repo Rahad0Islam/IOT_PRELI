@@ -8,9 +8,32 @@
  * Usage:  npx tsx scripts/verify-alerts.ts
  */
 import process from 'node:process';
+import { readFileSync } from 'node:fs';
+import { default as path } from 'node:path';
 
 import { config } from '../src/config/config.js';
 import { isWithinOfficeHours, msSince } from '../src/utils/time.js';
+
+/**
+ * Test scenarios are defined RELATIVE to the configured office window so
+ * the harness stays valid regardless of OFFICE_START_HOUR / OFFICE_END_HOUR.
+ *   base = a known in-hours anchor (1 hour after start).
+ *   outsideLate = 1 hour after end (after-hours on the same day).
+ *   outsideEarly = 1 hour before start (after-hours on the same day).
+ */
+const startHour = config.office.startHour;
+const endHour = config.office.endHour;
+const of = (h: number): string => `${String(((h % 24) + 24) % 24).padStart(2, '0')}:00`;
+/**
+ * Office window is half-open: [start, end). Pick the anchor inside the
+ * window by stepping 0.5h past the start, so the harness stays valid
+ * regardless of how narrow the window is (e.g. 09–10).
+ */
+const inHoursAnchor = of(startHour) // 09:00
+  .replace(/^(\d{2}):00$/, (_m, hh: string) => `${hh}:30`); // 09:30
+const outsideLate = of(endHour); // end-hour itself counts as after-hours
+const outsideEarly = of(startHour - 1);
+const outsideLateLateNight = of(endHour + 3);
 
 interface Scenario {
   name: string;
@@ -22,24 +45,48 @@ interface Scenario {
   expectedRuntime: boolean;
 }
 
-const SCENARIOS: Scenario[] = [
-  { name: '03:10 — device just ON, inside office hours', clock: '03:10', onForMs: 0,
-    expectedAfterHours: false, expectedRuntime: false },
-  { name: '03:50 — device still ON, still inside office hours', clock: '03:50', onForMs: 40 * 60_000,
-    expectedAfterHours: false, expectedRuntime: false },
-  { name: '04:01 — device ON, just after office hours', clock: '04:01', onForMs: 51 * 60_000,
-    expectedAfterHours: true, expectedRuntime: false },
-  { name: '02:30 — device ON, well before office hours', clock: '02:30', onForMs: 5 * 60_000,
-    expectedAfterHours: true, expectedRuntime: false },
-  { name: '05:11 — device ON for >2h, outside office hours', clock: '05:11', onForMs: 2 * 60 * 60_000 + 1 * 60_000,
-    expectedAfterHours: true, expectedRuntime: true },
-  { name: '03:30 — device ON for >2h, INSIDE office hours', clock: '03:30', onForMs: 2 * 60 * 60_000 + 10 * 60_000,
-    expectedAfterHours: false, expectedRuntime: true },
-];
-
 const officeStart = config.office.start;
 const officeEnd = config.office.end;
 const thresholdMs = config.alerts.continuousRuntimeMs;
+
+// All "no-runtime-yet" scenarios use 50% of the configured threshold so the
+// harness passes regardless of DEVICE_RUNTIME_ALERT_MINUTES (e.g. 2 min or 120).
+// The single "runtime firing" scenario uses 2x the threshold.
+const halfThreshold = Math.floor(thresholdMs / 2);
+const doubleThreshold = thresholdMs * 2;
+
+const SCENARIOS: Scenario[] = [
+  // ---- Anchor scenarios (always inside the configured window) ----
+  { name: `${inHoursAnchor} — device just ON, inside office hours`,
+    clock: inHoursAnchor, onForMs: 0,
+    expectedAfterHours: false, expectedRuntime: false },
+  { name: `${inHoursAnchor.slice(0, 2)}:45 — device still ON, still inside office hours`,
+    clock: `${inHoursAnchor.slice(0, 2)}:45`, onForMs: halfThreshold,
+    expectedAfterHours: false, expectedRuntime: false },
+  // ---- Anchor scenarios (outside the configured window) ----
+  { name: `${outsideLate}:01 — device ON, just after office hours`,
+    clock: `${outsideLate.slice(0, 2)}:01`, onForMs: halfThreshold,
+    expectedAfterHours: true, expectedRuntime: false },
+  { name: `${outsideEarly}:30 — device ON, well before office hours`,
+    clock: `${outsideEarly.slice(0, 2)}:30`, onForMs: halfThreshold,
+    expectedAfterHours: true, expectedRuntime: false },
+
+  // ---- Dual-trigger architecture (on-toggle + 60s scan) ----
+  // The IMMEDIATE path fires the alert the moment a device is toggled ON
+  // after-hours, without waiting for the 60s scheduler tick.
+  { name: `IMMEDIATE ${outsideLate}:05 — toggle-ON just after office hours (instant)`,
+    clock: `${outsideLate.slice(0, 2)}:05`, onForMs: 0,
+    expectedAfterHours: true, expectedRuntime: false },
+  { name: `IMMEDIATE ${outsideEarly}:00 — toggle-ON well before office hours (instant)`,
+    clock: `${outsideEarly.slice(0, 2)}:00`, onForMs: 0,
+    expectedAfterHours: true, expectedRuntime: false },
+  // Below: a device already past the runtime threshold gets its lastChanged
+  // refreshed. The on-toggle path should now fire CONTINUOUS_RUNTIME in
+  // addition to AFTER_HOURS when relevant.
+  { name: `IMMEDIATE ${outsideLateLateNight}:10 — toggle-ON, was already ON 2x threshold, after-hours`,
+    clock: `${outsideLateLateNight.slice(0, 2)}:10`, onForMs: doubleThreshold,
+    expectedAfterHours: true, expectedRuntime: true },
+];
 
 console.log(`\nOffice window: ${officeStart}–${officeEnd}`);
 console.log(`Runtime threshold: ${thresholdMs / 60_000} minutes\n`);
@@ -70,22 +117,49 @@ for (const s of SCENARIOS) {
   ok ? pass++ : fail++;
 }
 
-// Bonus: cross-midnight window (e.g. 22:00 → 06:00).
-process.env.OFFICE_START_HOUR = '22';
-process.env.OFFICE_END_HOUR = '6';
-console.log('\n-- Cross-midnight window sanity check (22:00–06:00) --');
-// We can't reload config in-process, so just exercise the time helper directly.
+// ---------------------------------------------------------------------
+//  Static checks: verify the dual-trigger wiring exists in source code.
+//  These don't spin the simulator — they grep the code so the dual-trigger
+//  guarantee is enforced even when no live test runs.
+// ---------------------------------------------------------------------
+console.log('\n-- Dual-trigger wiring (source-level) --');
 {
-  const fakeNow = new Date(); fakeNow.setHours(23, 30, 0, 0);
-  const inside = isWithinOfficeHours('22:00', '06:00', fakeNow);
-  console.log(`23:30 → inHours=${inside} (expected true)`);
-  fakeNow.setHours(5, 30, 0, 0);
-  const inside2 = isWithinOfficeHours('22:00', '06:00', fakeNow);
-  console.log(`05:30 → inHours=${inside2} (expected true)`);
-  fakeNow.setHours(10, 0, 0, 0);
-  const inside3 = isWithinOfficeHours('22:00', '06:00', fakeNow);
-  console.log(`10:00 → inHours=${inside3} (expected false)`);
-}
+  const devicesSvc = readFileSync(path.resolve('src/modules/devices/device.service.ts'), 'utf8');
+  const alertSvc = readFileSync(path.resolve('src/modules/alerts/alert.service.ts'), 'utf8');
 
-console.log(`\nResult: ${pass} passed, ${fail} failed.\n`);
-process.exit(fail === 0 ? 0 : 1);
+  const checks: Array<[string, boolean]> = [
+    [
+      'devices.service.ts calls alertService.evaluateNow()',
+      /alertService\.evaluateNow\(/.test(devicesSvc),
+    ],
+    [
+      'alert.service.ts exposes evaluateNow()',
+      /async\s+evaluateNow\s*\(/.test(alertSvc),
+    ],
+    [
+      'alert.service.ts keeps the 60s scheduler scan()',
+      /async\s+scan\s*\(/.test(alertSvc),
+    ],
+    [
+      'simulator.service.ts routes flips through deviceService.applyStatus() (LIVE trigger)',
+      /deviceService\.applyStatus\(/.test(
+        readFileSync(path.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
+      ),
+    ],
+    [
+      'simulator.service.ts does NOT bypass the alert path with raw databaseService.updateDevice + socket.emit',
+      !/databaseService\.updateDevice\([^)]*\)\s*;\s*if\s*\([\s\S]{0,80}socketService\.emit\(SocketEvent\.DEVICE_UPDATED/.test(
+        readFileSync(path.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
+      ),
+    ],
+  ];
+
+  let wirePass = 0;
+  let wireFail = 0;
+  for (const [label, ok] of checks) {
+    console.log(`${ok ? '✅ PASS' : '❌ FAIL'}  ${label}`);
+    ok ? wirePass++ : wireFail++;
+  }
+  console.log(`\nResult: ${pass} passed, ${fail} failed, ${wirePass} wiring ok, ${wireFail} wiring broken.\n`);
+  process.exit(fail === 0 && wireFail === 0 ? 0 : 1);
+}

@@ -14,12 +14,9 @@
 import { config } from '../../config/config.js';
 import { databaseService } from '../../database/database.service.js';
 import { logger } from '../../utils/logger.js';
-import { nowISO } from '../../utils/time.js';
-import { DeviceStatus, SocketEvent } from '../../types/enums.js';
+import { DeviceStatus } from '../../types/enums.js';
 import type { Device } from '../../interfaces/device.interface.js';
 import { deviceService } from '../devices/device.service.js';
-import { buildOfficeUsage } from '../usage/usage.service.js';
-import { socketService } from '../../socket/socket.service.js';
 
 class SimulatorService {
   private timer: NodeJS.Timeout | null = null;
@@ -49,7 +46,7 @@ class SimulatorService {
     logger.info('simulator', 'stopped');
   }
 
-  /** One iteration: pick N random devices, flip each, emit updates. */
+  /** One iteration: pick N random devices, flip each. */
   async tick(): Promise<void> {
     const devices = await databaseService.getDevices();
     if (devices.length === 0) return;
@@ -73,25 +70,19 @@ class SimulatorService {
           : Math.random() < config.simulator.onProbability
             ? DeviceStatus.ON
             : DeviceStatus.OFF;
-      const updated = await databaseService.updateDevice(picked.id, {
-        status: next,
-        lastChanged: nowISO(),
-        afterHoursAlertSent: next === DeviceStatus.OFF ? false : picked.afterHoursAlertSent,
-        runtimeAlertSent: next === DeviceStatus.OFF ? false : picked.runtimeAlertSent,
-      });
-      if (updated) {
-        toggled.push(updated);
-        socketService.emit(SocketEvent.DEVICE_UPDATED, updated);
-      }
+
+      // Route through deviceService so the IMMEDIATE alert check fires
+      // BEFORE the device_updated socket emit. This is what the user asked
+      // for: alerts trigger the moment a device changes, with NO 60-second
+      // wait. The 60s scheduler is kept for devices that cross the runtime
+      // threshold WITHOUT any event touching them.
+      const updated = await deviceService.applyStatus(picked.id, next);
+      if (updated) toggled.push(updated);
     }
 
     if (toggled.length > 0) {
-      const all = await databaseService.getDevices();
-      socketService.emit(SocketEvent.USAGE_UPDATED, buildOfficeUsage(all));
       logger.debug('simulator', `flipped ${toggled.length} device(s)`);
     }
-    // touch deviceService so module-init side-effects (if added later) are kept warm.
-    void deviceService;
   }
 }
 
