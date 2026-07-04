@@ -3,13 +3,26 @@
  *
  * Alert engine.
  *
- * Two rules (see SPEC):
- *   1. AFTER_HOURS     — a device is ON outside office hours.
- *   2. CONTINUOUS_RUNTIME — a device has been continuously ON for > 2h.
+ * Two rules (see SPEC), evaluated INDEPENDENTLY for every device:
+ *   1. AFTER_HOURS
+ *      A device is ON while the wall-clock is OUTSIDE the office window
+ *      defined by `OFFICE_START_HOUR` / `OFFICE_END_HOUR` (integer hours,
+ *      loaded in config.ts).
+ *      - Office window is `[start, end)` — i.e. start inclusive, end
+ *        exclusive, so 17:00 sharp is already after-hours.
+ *      - Cross-midnight windows (start > end, e.g. 22 → 06) are supported.
  *
- * Dedup: each device carries `afterHoursAlertSent` and `runtimeAlertSent`
- * flags. We only push a new alert for a (device, type) pair once, and we
- * clear the flag the moment the device goes OFF (see device.service).
+ *   2. CONTINUOUS_RUNTIME
+ *      A device has been continuously ON for at least
+ *      `DEVICE_RUNTIME_ALERT_MINUTES` minutes. Independent of office hours.
+ *
+ * Dedup:
+ *   Each device carries `afterHoursAlertSent` and `runtimeAlertSent`
+ *   flags. We only push an alert for a (device, type) pair once. Both
+ *   flags reset to `false` when the device flips OFF (see device.service).
+ *   This guarantees:
+ *     - No repeated alerts every scan tick while the condition stays true.
+ *     - Toggling the device OFF then ON again naturally re-arms the alert.
  */
 
 import { config } from '../../config/config.js';
@@ -29,9 +42,19 @@ class AlertService {
   async scan(): Promise<Alert[]> {
     const devices = await databaseService.getDevices();
     const triggered: Alert[] = [];
+    const now = new Date();
+
+    // Debug: log the office-hour window + whether "now" is inside it.
+    const inHours = isWithinOfficeHours(config.office.start, config.office.end, now);
+    logger.debug(
+      'alerts',
+      `current=${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ` +
+        `office=${config.office.start}-${config.office.end} ` +
+        `isAfterHours=${String(!inHours)}`
+    );
 
     for (const device of devices) {
-      const a = await this.evaluateDevice(device);
+      const a = await this.evaluateDevice(device, now);
       if (a) triggered.push(a);
     }
     if (triggered.length > 0) {
@@ -41,25 +64,28 @@ class AlertService {
   }
 
   /**
-   * Evaluate a single device against both alert rules and persist
-   * any resulting Alert. Returns the newly-pushed Alert or null.
+   * Evaluate a single device against both alert rules and persist any
+   * resulting Alert. Rules are independent — both may match in the same
+   * scan, but dedup flags prevent duplicates on subsequent scans.
    */
-  private async evaluateDevice(device: Device): Promise<Alert | null> {
+  private async evaluateDevice(device: Device, now: Date): Promise<Alert | null> {
     if (device.status !== DeviceStatus.ON) return null;
 
-    // -- Rule 1: After Hours --
-    const afterHours = !isWithinOfficeHours(
-      config.office.start,
-      config.office.end,
-      new Date()
-    );
+    const inHours = isWithinOfficeHours(config.office.start, config.office.end, now);
+    const onMs = msSince(device.lastChanged);
+    const threshold = config.alerts.continuousRuntimeMs;
 
-    if (afterHours && !device.afterHoursAlertSent) {
+    let lastPushed: Alert | null = null;
+
+    // ---- Rule 1: After Hours (independent of runtime) ----
+    if (!inHours && !device.afterHoursAlertSent) {
       const alert = await this.pushAlert({
         type: AlertType.AFTER_HOURS,
         severity: AlertSeverity.CRITICAL,
         title: `${ROOM_LABELS[device.room]} · ${device.name} left ON after hours`,
-        message: `It is outside office hours (${config.office.start}–${config.office.end}) and ${ROOM_LABELS[device.room]} / ${device.name} is still ON (${device.powerDraw} W).`,
+        message:
+          `It is outside office hours (${config.office.start}–${config.office.end}) ` +
+          `and ${ROOM_LABELS[device.room]} / ${device.name} is still ON (${device.powerDraw} W).`,
         deviceId: device.id,
         deviceName: device.name,
         room: ROOM_LABELS[device.room],
@@ -67,20 +93,18 @@ class AlertService {
       });
       await databaseService.updateDevice(device.id, { afterHoursAlertSent: true });
       await this.broadcast(alert);
-      return alert;
+      lastPushed = alert;
     }
 
-    // -- Rule 2: Continuous Runtime --
-    const onMs = msSince(device.lastChanged);
-    if (
-      onMs >= config.alerts.continuousRuntimeMs &&
-      !device.runtimeAlertSent
-    ) {
+    // ---- Rule 2: Continuous Runtime (independent of office hours) ----
+    if (onMs >= threshold && !device.runtimeAlertSent) {
       const alert = await this.pushAlert({
         type: AlertType.CONTINUOUS_RUNTIME,
         severity: AlertSeverity.WARNING,
         title: `${ROOM_LABELS[device.room]} · ${device.name} ON for ${msToHumanDuration(onMs)}`,
-        message: `${ROOM_LABELS[device.room]} / ${device.name} has been continuously ON for ${msToHumanDuration(onMs)} (threshold: ${msToHumanDuration(config.alerts.continuousRuntimeMs)}).`,
+        message:
+          `${ROOM_LABELS[device.room]} / ${device.name} has been continuously ON for ` +
+          `${msToHumanDuration(onMs)} (threshold: ${msToHumanDuration(threshold)}).`,
         deviceId: device.id,
         deviceName: device.name,
         room: ROOM_LABELS[device.room],
@@ -88,10 +112,10 @@ class AlertService {
       });
       await databaseService.updateDevice(device.id, { runtimeAlertSent: true });
       await this.broadcast(alert);
-      return alert;
+      lastPushed = alert;
     }
 
-    return null;
+    return lastPushed;
   }
 
   private async pushAlert(input: Omit<Alert, 'id'>): Promise<Alert> {

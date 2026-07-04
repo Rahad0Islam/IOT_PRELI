@@ -34,6 +34,15 @@ const num = (key: string, defaultValue: number): number => {
   return Number.isFinite(parsed) ? parsed : defaultValue;
 };
 
+/**
+ * Format a (validated) integer hour 0..23 as a `HH:00` string.
+ * Anything outside that range collapses to the default `9`.
+ */
+function formatHourToHHMM(hour: number): string {
+  const safe = Number.isFinite(hour) && hour >= 0 && hour <= 23 ? hour : 9;
+  return `${String(safe).padStart(2, '0')}:00`;
+}
+
 export const config = {
   env: str('NODE_ENV', 'development'),
   isProduction: str('NODE_ENV', 'development') === 'production',
@@ -77,12 +86,21 @@ export const config = {
     /** Background scanner interval in ms. */
     scanIntervalMs: num('ALERT_SCAN_INTERVAL_MS', 60_000),
     /** Continuous runtime threshold — devices ON longer than this trigger an alert. */
-    continuousRuntimeMs: num('ALERT_RUNTIME_MS', 2 * 60 * 60 * 1000),
+    continuousRuntimeMs:
+      num('DEVICE_RUNTIME_ALERT_MINUTES', 120) * 60 * 1000,
   },
 
   office: {
-    start: '09:00',
-    end: '17:00',
+    /**
+     * Office hours come from `OFFICE_START_HOUR` / `OFFICE_END_HOUR`.
+     * They are integer hours (0–23), NOT minutes. They are formatted to
+     * `HH:00` here so downstream `isWithinOfficeHours` (which expects
+     * `HH:MM` strings) can compare apples to apples.
+     */
+    startHour: num('OFFICE_START_HOUR', 9),
+    endHour: num('OFFICE_END_HOUR', 17),
+    start: formatHourToHHMM(num('OFFICE_START_HOUR', 9)),
+    end: formatHourToHHMM(num('OFFICE_END_HOUR', 17)),
   },
 
   cors: {

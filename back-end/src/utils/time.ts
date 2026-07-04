@@ -29,13 +29,30 @@ export const hhmmToMinutes = (hhmm: string): number => {
 export const currentMinutesOfDay = (at: Date = new Date()): number =>
   at.getHours() * 60 + at.getMinutes();
 
-/** True if `now`'s HH:MM is strictly between `start` and `end` (inclusive of start, exclusive of end). */
-export const isWithinOfficeHours = (start: string, end: string, now: Date = new Date()): boolean => {
+/**
+ * True if `now`'s HH:MM is strictly between `start` and `end`.
+ * - `start` is inclusive, `end` is exclusive (so a 17:00 end means
+ *   the office is closed AT 17:00 — that minute counts as after-hours).
+ * - If the input is malformed or `start >= end`, returns `false`
+ *   (treat as "after hours" so devices alert rather than get silently
+ *    masked by broken config).
+ */
+export const isWithinOfficeHours = (
+  start: string,
+  end: string,
+  now: Date = new Date()
+): boolean => {
   const s = hhmmToMinutes(start);
   const e = hhmmToMinutes(end);
+  if (s < 0 || e < 0) return false;
+  // Allow cross-midnight (e.g. 22:00 → 06:00) by detecting s > e.
   const cur = currentMinutesOfDay(now);
-  if (s < 0 || e < 0 || s >= e) return false;
-  return cur >= s && cur < e;
+  if (s < e) {
+    // Same-day window:  s <= cur < e
+    return cur >= s && cur < e;
+  }
+  // Cross-midnight: cur >= s OR cur < e
+  return cur >= s || cur < e;
 };
 
 /** Format milliseconds as `"1h 23m"` for human consumption. */

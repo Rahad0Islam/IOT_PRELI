@@ -33,7 +33,13 @@ class DatabaseService {
       // Defensive migration: ensure missing collections exist after upgrades.
       db.data.devices ??= [];
       db.data.alerts ??= [];
-      db.data.office ??= { officeHours: { start: '09:00', end: '17:00' }, estimatedTodayUsage: 0 };
+      db.data.office ??= {
+        officeHours: {
+          start: config.office.start,
+          end: config.office.end,
+        },
+        estimatedTodayUsage: 0,
+      };
       await db.write();
     }
     this.db = db;
