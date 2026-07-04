@@ -1,3 +1,4 @@
+#!/usr/bin/env -S npx tsx
 /**
  * scripts/verify-alerts.ts
  *
@@ -5,14 +6,61 @@
  * Runs against the *actual* time logic and alert service code — no HTTP
  * server required. Exercises every scenario from the bug report.
  *
- * Usage:  npx tsx scripts/verify-alerts.ts
+ * IMPORTANT: This file is TypeScript and MUST be run with `tsx` (or compiled
+ * to JS first). Plain `node` cannot execute it and will fail with
+ * `ERR_MODULE_NOT_FOUND: .../config.js` because Node tries to resolve the
+ * `.js` import as a literal file (it does not transpile `.ts`).
+ *
+ * Usage (run from the back-end/ directory):
+ *   npm run verify:alerts          # recommended
+ *   npx tsx scripts/verify-alerts.ts
+ *   ./scripts/verify-alerts.ts     # works thanks to the shebang above
+ *
+ * DO NOT run with `node ./scripts/verify-alerts.ts` — that bypasses tsx.
  */
 import process from 'node:process';
-import { readFileSync } from 'node:fs';
-import { default as path } from 'node:path';
-
+import { existsSync, readFileSync } from 'node:fs';
+import { default as nodePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from '../src/config/config.js';
-import { isWithinOfficeHours, msSince } from '../src/utils/time.js';
+
+// Resolve the back-end root (one level up from this script). Running the
+// harness from any other directory will produce a misleading "Cannot find
+// module '../src/config/config.js'" — guard against it up front.
+//
+// We require TWO markers so the guard stays accurate even if one is moved:
+//   1. src/config/config.ts   — the file this script imports
+//   2. package.json           — the back-end npm project root
+// The script's own directory (scripts/) is also checked so a misrun from
+// a sibling project with the same folder name still fails fast.
+const __dirname = nodePath.dirname(fileURLToPath(import.meta.url));
+const backEndRoot = nodePath.resolve(__dirname, '..');
+const expectedConfigTs = nodePath.join(backEndRoot, 'src/config/config.ts');
+const expectedPackageJson = nodePath.join(backEndRoot, 'package.json');
+const scriptsDir = nodePath.resolve(backEndRoot, 'scripts');
+if (
+  !existsSync(expectedConfigTs) ||
+  !existsSync(expectedPackageJson) ||
+  nodePath.resolve(__dirname) !== scriptsDir
+) {
+  console.error(
+    `\n[verify-alerts] Could not locate back-end root.\n` +
+      `  Looked for: ${expectedConfigTs}\n` +
+      `  Looked for: ${expectedPackageJson}\n` +
+      `  Expected scripts/ at: ${scriptsDir}\n` +
+      `  Run this script from the back-end/ directory:\n` +
+      `    npm run verify:alerts\n` +
+      `  or:\n` +
+      `    npx tsx scripts/verify-alerts.ts\n`
+  );
+  process.exit(2);
+}
+process.chdir(backEndRoot);
+
+// All app imports come AFTER the directory guard so a misrun gets a clear
+// error instead of a raw "Cannot find module …".
+// const { config } = await import('../src/config/config.js');
+const { isWithinOfficeHours, msSince } = await import('../src/utils/time.js');
 
 /**
  * Test scenarios are defined RELATIVE to the configured office window so
@@ -124,8 +172,8 @@ for (const s of SCENARIOS) {
 // ---------------------------------------------------------------------
 console.log('\n-- Dual-trigger wiring (source-level) --');
 {
-  const devicesSvc = readFileSync(path.resolve('src/modules/devices/device.service.ts'), 'utf8');
-  const alertSvc = readFileSync(path.resolve('src/modules/alerts/alert.service.ts'), 'utf8');
+  const devicesSvc = readFileSync(nodePath.resolve('src/modules/devices/device.service.ts'), 'utf8');
+  const alertSvc = readFileSync(nodePath.resolve('src/modules/alerts/alert.service.ts'), 'utf8');
 
   const checks: Array<[string, boolean]> = [
     [
@@ -143,13 +191,13 @@ console.log('\n-- Dual-trigger wiring (source-level) --');
     [
       'simulator.service.ts routes flips through deviceService.applyStatus() (LIVE trigger)',
       /deviceService\.applyStatus\(/.test(
-        readFileSync(path.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
+        readFileSync(nodePath.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
       ),
     ],
     [
       'simulator.service.ts does NOT bypass the alert path with raw databaseService.updateDevice + socket.emit',
       !/databaseService\.updateDevice\([^)]*\)\s*;\s*if\s*\([\s\S]{0,80}socketService\.emit\(SocketEvent\.DEVICE_UPDATED/.test(
-        readFileSync(path.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
+        readFileSync(nodePath.resolve('src/modules/simulator/simulator.service.ts'), 'utf8')
       ),
     ],
   ];

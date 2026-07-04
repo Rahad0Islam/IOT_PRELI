@@ -6,7 +6,7 @@
     "lib": ["ES2022"],
     "types": ["node"],
 
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
 
     "sourceMap": true,
@@ -31,6 +31,6 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
