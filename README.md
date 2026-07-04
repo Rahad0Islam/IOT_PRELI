@@ -610,8 +610,8 @@ Team members:
 | Name | Role |
 | --- | --- |
 | **Autanu Datta** | Team Leader |
-| **Rahad Islam** | Backend & Frontend engineering |
-| **Iftakharul Alam Tarit** | Frontend & UI |
-| **Taposh Ghosh** | Hardware (Tinkercad circuit) & documentation |
+| **Rahad Islam** | Member |
+| **Iftakharul Alam Tarit** | Member |
+| **Taposh Ghosh** | Member |
 
 Thank you for reviewing our work. 🚀
