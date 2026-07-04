@@ -281,7 +281,7 @@ In the browser open **`http://localhost:5173`**. With `SIMULATOR_ENABLED=true`, 
 
 ![System design overview](docs/system-design.jpeg)
 
-The diagram above shows every layer of the system and how data flows between them.
+The diagram shows the overall system architecture and the flow of data between different components. The diagram was created using draw.io.
 
 ## Component overview
 
@@ -610,8 +610,8 @@ Team members:
 | Name | Role |
 | --- | --- |
 | **Autanu Datta** | Team Leader |
-| **Rahad Islam** | Backend & Frontend engineering |
-| **Iftakharul Alam Tarit** | Frontend & UI |
-| **Taposh Ghosh** | Hardware (Tinkercad circuit) & documentation |
+| **Rahad Islam** | Member |
+| **Iftakharul Alam Tarit** | Member |
+| **Taposh Ghosh** | Member |
 
 Thank you for reviewing our work. 🚀
