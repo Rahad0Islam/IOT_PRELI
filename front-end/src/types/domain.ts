@@ -48,7 +48,6 @@ export interface UsageHistoryPoint {
 export interface OfficeUsage {
   totalPowerWatts: number;
   estimatedTodayKWh: number;
-  estimatedMonthlyKWh: number;
   rooms: RoomUsage[];
   history: UsageHistoryPoint[];
   computedAt: string;

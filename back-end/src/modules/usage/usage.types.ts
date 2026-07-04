@@ -16,8 +16,6 @@ export interface RoomUsage {
   totalCount: number;
   /** kWh accumulated in this room today, derived from the runtime history. */
   todayKWh: number;
-  /** kWh accumulated in this room this month, derived from the runtime history. */
-  monthKWh: number;
 }
 
 export interface OfficeUsage {
@@ -29,10 +27,6 @@ export interface OfficeUsage {
    * toggles and server restarts.
    */
   estimatedTodayKWh: number;
-  /**
-   * kWh accumulated this month. Also from the runtime history.
-   */
-  estimatedMonthlyKWh: number;
   /** Per-room breakdown. */
   rooms: RoomUsage[];
   /** Most recent ON transitions across the office (for the line chart). */

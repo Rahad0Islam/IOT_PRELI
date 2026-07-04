@@ -6,11 +6,11 @@
  *
  * Why this exists
  * ---------------
- * The previous "Today's Estimated Usage" / "Monthly Estimated Usage" values
- * were computed from `device.lastChanged`, which is only ever the start of
- * the *current* ON session. The moment a device turned OFF, its accumulated
- * runtime disappeared from the formula. Numbers reset every time a device
- * flipped, and monthly totals were simply `today × 22 working days`.
+ * The previous "Today's Estimated Usage" value was computed from
+ * `device.lastChanged`, which is only ever the start of the *current* ON
+ * session. The moment a device turned OFF, its accumulated runtime
+ * disappeared from the formula. The number reset every time a device
+ * flipped.
  *
  * This service replaces that with a real time-series:
  *   1. When a device goes ON, we record `currentSessionStart`.
@@ -19,8 +19,8 @@
  *      number therefore ticks upward in real time.
  *   3. When a device goes OFF, we close the session, fold the final delta
  *      into the totals, and clear `currentSessionStart`.
- *   4. At 00:00 we do a daily rollover (and at 00:00 on day 1 a monthly
- *      rollover), splitting any running session at the boundary.
+ *   4. At 00:00 we do a daily rollover, splitting any running session at
+ *      the boundary.
  *   5. On startup, we rehydrate from disk. If a device is currently ON and
  *      has `currentSessionStart`, we keep counting from that timestamp —
  *      no runtime is lost when the server restarts.
@@ -38,7 +38,6 @@
 import { config } from '../../config/config.js';
 import { databaseService } from '../../database/database.service.js';
 import { logger } from '../../utils/logger.js';
-import { nowISO } from '../../utils/time.js';
 import { ROOM_LABELS, Room, DeviceStatus } from '../../types/enums.js';
 import type { Device } from '../../interfaces/device.interface.js';
 import { runtimeHistoryService } from './runtime-history.service.js';
@@ -56,16 +55,9 @@ const ymd = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
-/** YYYY-MM in local time. */
-const ym = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
 /** Start-of-day Date for the given Date (local time, midnight). */
 const startOfDay = (d: Date): Date =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-
-/** Start-of-month Date for the given Date (local time, day 1 at 00:00). */
-const startOfMonth = (d: Date): Date =>
-  new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
 
 /** Floor a millisecond delta to whole seconds (runtimes are reported in seconds). */
 const msToSeconds = (ms: number): number => Math.max(0, Math.floor(ms / 1000));
@@ -83,18 +75,15 @@ const emptyRecord = (device: Device): RuntimeRecord => {
     room: roomLabel,
     currentSessionStart: null,
     todayRuntimeSeconds: 0,
-    monthRuntimeSeconds: 0,
     totalRuntimeSeconds: 0,
-    lastUpdated: nowISO(),
+    lastUpdated: new Date().toISOString(),
     dailyHistory: {},
-    monthlyHistory: {},
   };
 };
 
 class RuntimeService {
   private tickTimer: NodeJS.Timeout | null = null;
   private nextDailyResetCheck: Date | null = null;
-  private nextMonthlyResetCheck: Date | null = null;
   private initialized = false;
 
   // -------------------------------------------------------------------------
@@ -110,17 +99,15 @@ class RuntimeService {
     if (this.initialized) return;
     await runtimeHistoryService.init();
     await this.seedMissingRecords();
-    // Anchor the next-rollover checks to the next midnight / next month
-    // boundary so the first tick doesn't immediately fire a rollover for
-    // devices installed minutes before midnight.
+    // Anchor the next-rollover check to the next midnight so the first
+    // tick doesn't immediately fire a rollover for devices installed
+    // minutes before midnight.
     const now = new Date();
     this.nextDailyResetCheck = this.nextMidnight(now);
-    this.nextMonthlyResetCheck = this.nextMonthStart(now);
     this.initialized = true;
     logger.info(
       'runtime',
-      `initialised — next daily reset ${this.nextDailyResetCheck.toISOString()}, ` +
-        `next monthly reset ${this.nextMonthlyResetCheck.toISOString()}`
+      `initialised — next daily reset ${this.nextDailyResetCheck.toISOString()}`
     );
   }
 
@@ -129,8 +116,7 @@ class RuntimeService {
    *   1. For every device currently ON, fold the elapsed-since-last-write
    *      delta into the totals and persist (so a crash loses at most
    *      `RUNTIME_TICK_INTERVAL_MS` of data per device).
-   *   2. Check whether we've crossed a daily / monthly boundary and run the
-   *      corresponding rollover.
+   *   2. Check whether we've crossed a daily boundary and run the rollover.
    *   3. Emit a fresh snapshot.
    */
   start(): void {
@@ -162,9 +148,9 @@ class RuntimeService {
    * Behaviour:
    *   - OFF → ON  : record `currentSessionStart = now`, do NOT add runtime
    *     yet (no time has elapsed).
-   *   - ON  → OFF : close the session, fold the delta into today/month/
-   *     total, append to `dailyHistory[YYYY-MM-DD]` and
-   *     `monthlyHistory[YYYY-MM]`, clear `currentSessionStart`, persist.
+   *   - ON  → OFF : close the session, fold the delta into today + total,
+   *     append to `dailyHistory[YYYY-MM-DD]`, clear `currentSessionStart`,
+   *     persist.
    *   - ON  → ON  (no change in status, e.g. lastChanged bumped): ignored —
    *     the live tick handles accumulation.
    *
@@ -205,7 +191,7 @@ class RuntimeService {
       this.applyDelta(rec, deltaSec, now);
       logger.debug(
         'runtime',
-        `session close ${rec.deviceName} +${deltaSec}s -> today=${rec.todayRuntimeSeconds}s month=${rec.monthRuntimeSeconds}s total=${rec.totalRuntimeSeconds}s`
+        `session close ${rec.deviceName} +${deltaSec}s -> today=${rec.todayRuntimeSeconds}s total=${rec.totalRuntimeSeconds}s`
       );
     }
     rec.currentSessionStart = null;
@@ -232,9 +218,7 @@ class RuntimeService {
     const byId = new Map(records.map((r) => [r.deviceId, r]));
 
     let totalToday = 0;
-    let totalMonth = 0;
     let todayKWh = 0;
-    let monthKWh = 0;
 
     const snapDevices: RuntimeSnapshot['devices'] = [];
 
@@ -246,32 +230,46 @@ class RuntimeService {
           ? msToSeconds(now.getTime() - new Date(rec.currentSessionStart).getTime())
           : 0;
       const todaySec = rec.todayRuntimeSeconds + liveSec;
-      const monthSec = rec.monthRuntimeSeconds + liveSec;
 
       totalToday += todaySec;
-      totalMonth += monthSec;
-      todayKWh += kWhFor(d.powerDraw, todaySec);
-      monthKWh += kWhFor(d.powerDraw, monthSec);
+      const dTodayKWh = kWhFor(d.powerDraw, todaySec);
+      todayKWh += dTodayKWh;
 
       snapDevices.push({
         deviceId: d.id,
         deviceName: d.name,
         room: ROOM_LABELS[d.room as Room] ?? String(d.room),
         todayRuntimeSeconds: todaySec,
-        monthRuntimeSeconds: monthSec,
         totalRuntimeSeconds: rec.totalRuntimeSeconds + liveSec,
         isCurrentlyOn: isOn,
         currentSessionStart: rec.currentSessionStart,
       });
+
+      // Per-device validation log — every device gets a line so any
+      // drift in the totals is visible at a glance. Gated behind
+      // LOG_LEVEL=debug so it doesn't spam production logs.
+      logger.debug(
+        'runtime',
+        `[validate] ${d.name.padEnd(8)} ${ROOM_LABELS[d.room as Room] ?? String(d.room).padEnd(13)} ` +
+          `status=${isOn ? 'ON ' : 'OFF'} ` +
+          `runtime=${(rec.totalRuntimeSeconds + liveSec)}s ` +
+          `today=${todaySec}s ` +
+          `todayKWh=${dTodayKWh.toFixed(4)}`
+      );
     }
+
+    // Office-wide totals — also logged at debug level.
+    logger.debug(
+      'runtime',
+      `[validate] OFFICE today=${totalToday}s ` +
+        `todayKWh=${todayKWh.toFixed(4)}`
+    );
 
     return {
       devices: snapDevices,
       total: {
         todayRuntimeSeconds: totalToday,
-        monthRuntimeSeconds: totalMonth,
         todayKWh: Math.round(todayKWh * 100) / 100,
-        monthKWh: Math.round(monthKWh * 100) / 100,
       },
       computedAt: now.toISOString(),
     };
@@ -314,20 +312,17 @@ class RuntimeService {
   }
 
   /**
-   * Add `deltaSec` seconds of runtime to a record. Bumps today, month and
-   * total, and appends the running daily / monthly counters to the history
-   * maps (NOT the partial delta — see `applyDeltaWithSplit` for that path).
+   * Add `deltaSec` seconds of runtime to a record. Bumps today + total,
+   * and appends the running daily counter to the history map (NOT the
+   * partial delta — see `runDailyRollover` for that path).
    *
    * No persistence: caller decides when to write.
    */
   private applyDelta(rec: RuntimeRecord, deltaSec: number, now: Date): void {
     rec.todayRuntimeSeconds += deltaSec;
-    rec.monthRuntimeSeconds += deltaSec;
     rec.totalRuntimeSeconds += deltaSec;
     const day = ymd(now);
-    const month = ym(now);
     rec.dailyHistory[day] = (rec.dailyHistory[day] ?? 0) + deltaSec;
-    rec.monthlyHistory[month] = (rec.monthlyHistory[month] ?? 0) + deltaSec;
     rec.lastUpdated = now.toISOString();
   }
 
@@ -345,12 +340,6 @@ class RuntimeService {
     if (this.nextDailyResetCheck && now >= this.nextDailyResetCheck) {
       await this.runDailyRollover(now);
       this.nextDailyResetCheck = this.nextMidnight(now);
-    }
-
-    // 3. Monthly rollover, if we've crossed a local month boundary.
-    if (this.nextMonthlyResetCheck && now >= this.nextMonthlyResetCheck) {
-      await this.runMonthlyRollover(now);
-      this.nextMonthlyResetCheck = this.nextMonthStart(now);
     }
   }
 
@@ -404,8 +393,6 @@ class RuntimeService {
     const midnightMs = midnight.getTime();
 
     const records = await runtimeHistoryService.getAll();
-    const devices = await databaseService.getDevices();
-    const deviceById = new Map(devices.map((d) => [d.id, d]));
 
     for (const rec of records) {
       // If a session is open and started BEFORE midnight, split it.
@@ -413,11 +400,10 @@ class RuntimeService {
         const startMs = new Date(rec.currentSessionStart).getTime();
         if (startMs < midnightMs) {
           // Pre-midnight portion: counted into yesterday's dailyHistory,
-          // todayRuntimeSeconds and monthRuntimeSeconds.
+          // todayRuntimeSeconds, and total.
           const preSec = msToSeconds(midnightMs - startMs);
           rec.dailyHistory[yesterdayKey] = (rec.dailyHistory[yesterdayKey] ?? 0) + preSec;
           rec.todayRuntimeSeconds += preSec;
-          rec.monthRuntimeSeconds += preSec;
           rec.totalRuntimeSeconds += preSec;
           // Restart the session at 00:00 sharp. Next tick will pick up
           // the post-midnight delta.
@@ -437,46 +423,10 @@ class RuntimeService {
       }
       rec.todayRuntimeSeconds = 0;
       rec.lastUpdated = now.toISOString();
-      void deviceById;
     }
     await runtimeHistoryService.replaceAll(records);
     await runtimeHistoryService.setLastDailyReset(now.toISOString());
     logger.info('runtime', `daily rollover @ ${midnight.toISOString()}`);
-  }
-
-  /**
-   * Monthly rollover — runs at 00:00 on the first of each month. Same shape
-   * as the daily rollover, but operates on `monthRuntimeSeconds` /
-   * `monthlyHistory` instead.
-   */
-  private async runMonthlyRollover(now: Date): Promise<void> {
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthKey = ym(lastMonth);
-    const monthStart = startOfMonth(now);
-    const monthStartMs = monthStart.getTime();
-
-    const records = await runtimeHistoryService.getAll();
-
-    for (const rec of records) {
-      if (rec.currentSessionStart) {
-        const startMs = new Date(rec.currentSessionStart).getTime();
-        if (startMs < monthStartMs) {
-          const preSec = msToSeconds(monthStartMs - startMs);
-          rec.monthlyHistory[lastMonthKey] = (rec.monthlyHistory[lastMonthKey] ?? 0) + preSec;
-          rec.monthRuntimeSeconds += preSec;
-          rec.totalRuntimeSeconds += preSec;
-          rec.currentSessionStart = monthStart.toISOString();
-        }
-      }
-      if (rec.monthRuntimeSeconds > 0) {
-        rec.monthlyHistory[lastMonthKey] = rec.monthRuntimeSeconds;
-      }
-      rec.monthRuntimeSeconds = 0;
-      rec.lastUpdated = now.toISOString();
-    }
-    await runtimeHistoryService.replaceAll(records);
-    await runtimeHistoryService.setLastMonthlyReset(now.toISOString());
-    logger.info('runtime', `monthly rollover @ ${monthStart.toISOString()}`);
   }
 
   // ---- Time helpers ----------------------------------------------------
@@ -486,11 +436,6 @@ class RuntimeService {
     const tomorrow = new Date(now);
     tomorrow.setHours(24, 0, 0, 0);
     return tomorrow;
-  }
-
-  /** Next local-time 00:00 on day 1 of the NEXT month. */
-  private nextMonthStart(now: Date): Date {
-    return new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
   }
 }
 

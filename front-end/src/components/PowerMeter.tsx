@@ -7,7 +7,13 @@ import AnimatedNumber from './AnimatedNumber';
 
 const MAX_WATTS = 1500; // visualisation cap.
 
-export default function PowerMeter({ watts }: { watts: number }) {
+export default function PowerMeter({
+  watts,
+  todayKWh = 0,
+}: {
+  watts: number;
+  todayKWh?: number;
+}) {
   const pct = Math.min(100, Math.round((watts / MAX_WATTS) * 100));
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
@@ -49,9 +55,8 @@ export default function PowerMeter({ watts }: { watts: number }) {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-3 gap-3">
-        <Stat label="Today" value={`${watts > 0 ? '~' : ''}0.0`} suffix="kWh" />
-        <Stat label="Month est." value="0.0" suffix="kWh" />
+      <div className="flex-1 grid grid-cols-2 gap-3">
+        <Stat label="Today" value={todayKWh.toFixed(2)} suffix="kWh" />
         <Stat label="Cap" value={`${MAX_WATTS}`} suffix="W" />
       </div>
     </div>

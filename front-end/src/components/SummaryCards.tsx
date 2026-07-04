@@ -2,7 +2,7 @@
  * SummaryCards — top-of-page KPIs.
  */
 import { motion } from 'framer-motion';
-import { FaBolt, FaLeaf, FaClock, FaBell } from 'react-icons/fa';
+import { FaBolt, FaLeaf, FaBell } from 'react-icons/fa';
 
 import type { OfficeUsage, Alert } from '../types/domain';
 
@@ -16,10 +16,9 @@ interface Props {
 export default function SummaryCards({ usage, alerts, deviceCount, activeCount }: Props) {
   const watts = usage?.totalPowerWatts ?? 0;
   const kWh = usage?.estimatedTodayKWh ?? 0;
-  const monthly = usage?.estimatedMonthlyKWh ?? 0;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <StatCard
         icon={<FaBolt />}
         label="Live Power"
@@ -33,13 +32,6 @@ export default function SummaryCards({ usage, alerts, deviceCount, activeCount }
         value={`${kWh.toFixed(2)}`}
         suffix="kWh"
         accent="from-neon-lime/30 to-neon-lime/0"
-      />
-      <StatCard
-        icon={<FaClock />}
-        label="Month est."
-        value={`${monthly.toFixed(1)}`}
-        suffix="kWh"
-        accent="from-neon-violet/30 to-neon-violet/0"
       />
       <StatCard
         icon={<FaBell />}

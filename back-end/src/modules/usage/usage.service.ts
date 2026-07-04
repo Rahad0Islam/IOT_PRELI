@@ -51,8 +51,7 @@ export const perRoomUsage = (devices: Device[], runtime: RuntimeSnapshot): RoomU
       // runtime seconds). We deliberately do NOT multiply by the room's
       // instantaneous watts — that would penalise a room that just turned
       // a device OFF.
-      todayKWh: sumPerDeviceKWh(inRoom, runtimeById, 'today'),
-      monthKWh: sumPerDeviceKWh(inRoom, runtimeById, 'month'),
+      todayKWh: sumPerDeviceKWh(inRoom, runtimeById),
     };
   });
 };
@@ -60,17 +59,21 @@ export const perRoomUsage = (devices: Device[], runtime: RuntimeSnapshot): RoomU
 /** Sum kWh across a device list using each device's own powerDraw. */
 const sumPerDeviceKWh = (
   devices: Device[],
-  runtimeById: Map<string, RuntimeSnapshot['devices'][number]>,
-  which: 'today' | 'month'
+  runtimeById: Map<string, RuntimeSnapshot['devices'][number]>
 ): number => {
   let acc = 0;
   for (const d of devices) {
     const r = runtimeById.get(d.id);
     if (!r) continue;
-    const sec = which === 'today' ? r.todayRuntimeSeconds : r.monthRuntimeSeconds;
-    acc += kWhFor(d.powerDraw, sec);
+    acc += kWhFor(d.powerDraw, r.todayRuntimeSeconds);
   }
-  return round2(acc);
+  // Per-room kWh is rounded to 3 decimal places (= watt-hour resolution).
+  // Rounding to 2dp would discard sub-0.005 kWh values (a fan running for
+  // ~1 minute, or any small room) and visually display them as "0.00 kWh"
+  // even though energy was clearly consumed. The office-level hero numbers
+  // are rounded to 2dp exactly once in `snapshot()`; this function is only
+  // for the per-room breakdown cards.
+  return round3(acc);
 };
 
 /**
@@ -113,7 +116,6 @@ export const buildOfficeUsage = (
   return {
     totalPowerWatts: totalPowerWattsNow,
     estimatedTodayKWh: runtime.total.todayKWh,
-    estimatedMonthlyKWh: runtime.total.monthKWh,
     rooms,
     history: powerHistory.all(),
     runtime,
@@ -122,3 +124,7 @@ export const buildOfficeUsage = (
 };
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Round to 3 decimal places. Used for per-room kWh so sub-5Wh values aren't
+ *  displayed as 0.00. */
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;

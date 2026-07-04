@@ -40,7 +40,10 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <PowerMeter watts={usage.data?.totalPowerWatts ?? 0} />
+          <PowerMeter
+            watts={usage.data?.totalPowerWatts ?? 0}
+            todayKWh={usage.data?.estimatedTodayKWh ?? 0}
+          />
         </div>
         <AlertsPanel alerts={alerts.data} />
       </div>

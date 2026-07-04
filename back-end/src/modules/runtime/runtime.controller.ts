@@ -23,17 +23,15 @@ export const runtimeController = {
     res.json({ success: true, data: snap });
   },
 
-  /** GET /api/runtime/history — full records including daily/monthly maps. */
+  /** GET /api/runtime/history — full records including the daily map. */
   async history(_req: Request, res: Response): Promise<void> {
     const records = await runtimeHistoryService.getAll();
     const lastDaily = await runtimeHistoryService.getLastDailyReset();
-    const lastMonthly = await runtimeHistoryService.getLastMonthlyReset();
     res.json({
       success: true,
       data: {
         devices: records,
         lastDailyReset: lastDaily,
-        lastMonthlyReset: lastMonthly,
         filePath: runtimeHistoryService.path(),
       },
     });

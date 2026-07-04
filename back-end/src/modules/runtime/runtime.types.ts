@@ -7,8 +7,9 @@
  * device been ON". The Usage Service consumes those totals and turns them
  * into kWh. The Dashboard reads the totals directly through `/api/runtime`.
  *
- * One RuntimeRecord per device. `dailyHistory` / `monthlyHistory` are
- * sparse maps keyed by `YYYY-MM-DD` / `YYYY-MM` respectively.
+ * One RuntimeRecord per device. `dailyHistory` is a sparse map keyed by
+ * `YYYY-MM-DD`. We only track today's runtime — monthly totals are no
+ * longer surfaced anywhere in the product.
  */
 
 /**
@@ -34,9 +35,6 @@ export interface RuntimeRecord {
   /** Cumulative ON-time counted *today*, in seconds. Resets at 00:00. */
   todayRuntimeSeconds: number;
 
-  /** Cumulative ON-time counted *this month*, in seconds. Resets on day 1. */
-  monthRuntimeSeconds: number;
-
   /** Cumulative ON-time ever recorded for this device, in seconds. Never reset. */
   totalRuntimeSeconds: number;
 
@@ -45,9 +43,6 @@ export interface RuntimeRecord {
 
   /** Sparse map. `dailyHistory["2026-07-04"]` = seconds ON on 2026-07-04. */
   dailyHistory: Record<string, number>;
-
-  /** Sparse map. `monthlyHistory["2026-07"]` = seconds ON in July 2026. */
-  monthlyHistory: Record<string, number>;
 }
 
 /**
@@ -61,8 +56,6 @@ export interface RuntimeHistoryShape {
   devices: RuntimeRecord[];
   /** ISO timestamp of the last daily rollover (00:00 boundary). */
   lastDailyReset: string;
-  /** ISO timestamp of the last monthly rollover (00:00 on day 1). */
-  lastMonthlyReset: string;
 }
 
 /**
@@ -77,7 +70,6 @@ export interface RuntimeSnapshot {
     deviceName: string;
     room: string;
     todayRuntimeSeconds: number;
-    monthRuntimeSeconds: number;
     totalRuntimeSeconds: number;
     /** True when the device is currently ON and a session is being timed. */
     isCurrentlyOn: boolean;
@@ -86,11 +78,8 @@ export interface RuntimeSnapshot {
   /** Office-wide totals. Convenience for the dashboard hero numbers. */
   total: {
     todayRuntimeSeconds: number;
-    monthRuntimeSeconds: number;
     /** Today's kWh across ALL devices. Computed from totals + per-device powerDraw. */
     todayKWh: number;
-    /** This month's kWh across ALL devices. */
-    monthKWh: number;
   };
   /** ISO timestamp the snapshot was built. */
   computedAt: string;

@@ -211,8 +211,8 @@ console.log('\n-- Dual-trigger wiring (source-level) --');
 
   // ---------------------------------------------------------------------
   //  Runtime tracking wiring (source-level).
-  //  The runtime service is the new source of truth for kWh totals; we
-  //  verify it's actually wired up rather than only present on disk.
+  //  The runtime service is the source of truth for today's kWh totals;
+  //  we verify it's actually wired up rather than only present on disk.
   // ---------------------------------------------------------------------
   console.log('\n-- Runtime tracking wiring (source-level) --');
 
@@ -278,6 +278,25 @@ console.log('\n-- Dual-trigger wiring (source-level) --');
         readFileSync(nodePath.resolve('src/server.ts'), 'utf8')
       ),
     ],
+    [
+      'runtime.service.ts no longer tracks a monthly counter',
+      !/monthRuntimeSeconds|monthlyHistory|runMonthlyRollover|nextMonthlyResetCheck/.test(runtimeSvcSrc),
+    ],
+    [
+      'usage.service.ts no longer returns monthKWh / estimatedMonthlyKWh',
+      !/monthKWh|estimatedMonthlyKWh/.test(
+        readFileSync(nodePath.resolve('src/modules/usage/usage.service.ts'), 'utf8')
+      ),
+    ],
+    [
+      'front-end domain.ts no longer references estimatedMonthlyKWh',
+      !/estimatedMonthlyKWh/.test(
+        readFileSync(
+          nodePath.resolve('../front-end/src/types/domain.ts'),
+          'utf8'
+        )
+      ),
+    ],
   ];
 
   let runtimePass = 0;
@@ -287,13 +306,15 @@ console.log('\n-- Dual-trigger wiring (source-level) --');
     ok ? runtimePass++ : runtimeFail++;
   }
 
-  // Note: `wirePass` / `wireFail` were the legacy single-section counters.
-  // Runtime checks are reported separately so the final line still shows
-  // the picture across both wiring sections.
+  // Note: `wirePass` / `wireFail` are the alerts-wiring counters. Runtime
+  // checks are reported separately so the final line still shows the
+  // picture across both wiring sections.
   console.log(
     `\nResult: ${pass} passed, ${fail} failed; ` +
       `alerts-wiring: ${wirePass} ok; ` +
       `runtime-wiring: ${runtimePass} ok, ${runtimeFail} broken.\n`
   );
-  process.exit(fail === 0 && runtimeFail === 0 ? 0 : 1);
+  process.exit(
+    fail === 0 && runtimeFail === 0 && wireFail === 0 ? 0 : 1
+  );
 }

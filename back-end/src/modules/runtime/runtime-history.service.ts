@@ -8,8 +8,8 @@
  *   - `database.service.ts` (the existing LowDB wrapper) owns `db.json`
  *     which carries the device list + alert log + office config.
  *   - `runtime-history.service.ts` owns a different concern (per-device
- *     runtime totals + daily/monthly history) and writes to its own file
- *     so a corrupt or bloated history doesn't break the rest of the app.
+ *     runtime totals + daily history) and writes to its own file so a
+ *     corrupt or bloated history doesn't break the rest of the app.
  *
  * Both files use LowDB. The schema is intentionally tiny and the only
  * write paths are `upsertRecord` / `replaceAll`, so contention is minimal.
@@ -20,15 +20,14 @@ import { JSONFile } from 'lowdb/node';
 
 import { config } from '../../config/config.js';
 import { logger } from '../../utils/logger.js';
-import { nowISO } from '../../utils/time.js';
 import type { RuntimeHistoryShape, RuntimeRecord } from './runtime.types.js';
 
 /**
  * Build the empty file shape.
  *
- * `lastDailyReset` / `lastMonthlyReset` are set to the start of the current
- * day / month in UTC so a fresh install doesn't immediately trigger a
- * rollover on the first tick.
+ * `lastDailyReset` is set to the start of the current day in local time
+ * so a fresh install doesn't immediately trigger a rollover on the first
+ * tick.
  */
 const emptyShape = (): RuntimeHistoryShape => {
   const now = new Date();
@@ -36,7 +35,6 @@ const emptyShape = (): RuntimeHistoryShape => {
   return {
     devices: [],
     lastDailyReset: dayStart.toISOString(),
-    lastMonthlyReset: dayStart.toISOString(),
   };
 };
 
@@ -66,7 +64,6 @@ class RuntimeHistoryService {
       // Defensive migration for older files: ensure the top-level shape.
       db.data.devices ??= [];
       db.data.lastDailyReset ??= new Date().toISOString();
-      db.data.lastMonthlyReset ??= new Date().toISOString();
       await db.write();
     }
     this.db = db;
@@ -108,32 +105,22 @@ class RuntimeHistoryService {
     await db.write();
   }
 
-  /** Bulk-replace the whole list — used by midnight / month rollovers. */
+  /** Bulk-replace the whole list — used by midnight rollover. */
   async replaceAll(records: RuntimeRecord[]): Promise<void> {
     const db = this.getDb();
     db.data!.devices = records;
     await db.write();
   }
 
-  /** Update `lastDailyReset` / `lastMonthlyReset` markers without touching records. */
+  /** Update `lastDailyReset` marker without touching records. */
   async setLastDailyReset(iso: string): Promise<void> {
     const db = this.getDb();
     db.data!.lastDailyReset = iso;
     await db.write();
   }
 
-  async setLastMonthlyReset(iso: string): Promise<void> {
-    const db = this.getDb();
-    db.data!.lastMonthlyReset = iso;
-    await db.write();
-  }
-
   async getLastDailyReset(): Promise<string> {
     return this.getDb().data!.lastDailyReset;
-  }
-
-  async getLastMonthlyReset(): Promise<string> {
-    return this.getDb().data!.lastMonthlyReset;
   }
 
   /** File path — exposed for diagnostics / tests. */
